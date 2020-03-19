@@ -8,11 +8,11 @@ These are the rules I use. Fork it and change 'em if you'd like.
 ## Start the Server
 
 Real easy: clone and `lein run` (default port is 3000)
-If you want your friends to join in, something like ngrok will work, or host build an uberjar, and a docker image and
-host it somewhere if you're fancy.
+If you want your friends to join in, something like ngrok will work. Or if you want to be fancy about it build
+an uberjar, and a docker image and host it somewhere.
 
 ## Start a game
-Examples bash functions for some game config/playing exist in the resources folder, but here you go:
+Example bash functions for some game config/playing exist in the `/resources` directory, but here you go:
 
 ### Request
 ``` bash
@@ -21,7 +21,7 @@ curl \
 -d '{"friendly-name": "YOUR NEW GAME"}'\
 $DICE_HOST/games
 ```
-Most names are optional, and a generated one will be passed to you if you don't provide one.
+Names are optional; a generated one will be passed to you if you don't provide one.
 `$DICE_HOST` would be `localhost:3000` or whatever you have tunnelling to your server.
 
 ### Response
@@ -69,13 +69,15 @@ You can check who's turn it is and get other game-state info at any point with a
 ### Actions
 The actions available for the turn-player (`POST /games/$GAME_ID/players/$PLAYER_ID/:action-name`):
 * roll - rolls all 6 dice unless `steal` parameter is passed in json post data, or you've already rolled
-* keep - pick dice to score with and either keep rolling or pass
+* keep - pick dice to score with and either keep rolling or pass under `keepers` param in json post body
 * pass - freezes your current score and passes remaining dice to the next player
 
 ## TODOs
 * [ ] The turn ordering is probably messed up, players used to be a vector, and are now a map
 * [ ] There is no end-game handling... you just sorta have to stop when someone wins
-* [ ] Some of the state stuff is janky and not totally safe.
+* [ ] Some of the state stuff is janky and not totally good.
+* [ ] Rulesets could be variablized and stored somewhere like domain (num-dice, values of straights/3 of a kind, stealing protocol...)
+* [ ] `keep.sh` needs to take a vector of keepers as third input
 
 ## License
 

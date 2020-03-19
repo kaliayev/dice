@@ -17,8 +17,8 @@
 
 (defroutes app-routes
   (context "/games" []
-    (GET "/" [] (resp/success @state/state)) ;; admin dump
-    (POST "/" {params :body} (games/new params)) ;; New Game
+    (GET "/" {params :body} (state/dump-state params)) ;; admin dump, should be disabled when run
+    (POST "/" {params :body} (games/new-game params)) ;; New Game
 
     (context "/:game-id" [game-id]
       (GET "/" [] (games/get-state game-id)) ;; Game state
@@ -37,7 +37,7 @@
           (POST "/pass" [] (players/pass game-id player-id))
           (POST "/sass" {params :body} (players/sass game-id player-id params))))))
 
-  (route/not-found {:message "Not a real route..."}))
+  (route/not-found "Not a real route..."))
 
 (def app
   (routes
@@ -48,6 +48,6 @@
 
 (defn -main [& args]
   (log/start-log-worker)
-  (log/info "Logger Started")
+  (log/info "Logger Started" @state/state)
   (run-jetty app {:port 3000
                   :join? false}))

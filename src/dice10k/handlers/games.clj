@@ -42,7 +42,7 @@
    :pending-points :int
    :pending-dice :int})
 
-(defn new
+(defn new-game
   [{:keys [friendly-name] :as params}]
   (let [friendly-name (if (seq friendly-name)
                         friendly-name
@@ -75,6 +75,7 @@
       (resp/fail {:message dne}))))
 
 (def player-schema {:player-id :uuid
+                    :turn-order :int
                     :name :str
                     :points :int
                     :turn-seq :int
@@ -90,14 +91,15 @@
                         (generate-name))
           player {:player-id (str (uuid/v4)) ;; super-secret token
                   :name player-name
+                  :turn-order (-> game :players keys count)
                   :points 0
                   :turn-seq 0
                   :pending-points 0
-                  :ice-broken false}]
+                  :ice-broken? false}]
       (swap! state assoc-in [(keyword game-id) :players (keyword (:player-id player))] player)
       (log/info "Added player" {:player player
                                 :game (get-game game-id)})
-      (resp/success {:message (format "You've been added, %s. Use your player-id for rolling/passing/sassing." (:name player))
+      (resp/success {:message (format "You've been added, %s. Use your player-id for rolling/passing/keeping. Shhh, it's your secret token." (:name player))
                      :player-id (:player-id player)}))
     (resp/fail dne)))
 

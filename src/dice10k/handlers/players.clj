@@ -4,7 +4,7 @@
              [log :as log]
              [resp :as resp]
              [scoring :as scoring]
-             [state :refer [state]]]
+             [state :as state]]
             [dice10k.handlers.games :as games]))
 
 (defn my-turn? [game-id player-id]
@@ -12,99 +12,179 @@
        (= player-id
           (-> game-id games/whos-turn :player-id))))
 
-(defn inc-turn-seq
-  [game-id player-id]
-  (swap! state update-in [(keyword game-id) :players (keyword player-id) :turn-seq] inc))
-
-(defn reset-turn [game-id player-id]
-  (swap! state assoc-in [(keyword game-id) :players (keyword player-id) :turn-seq] 0)
-  (swap! state assoc-in [(keyword game-id) :players (keyword player-id) :roll-vec] []))
-
-(defn bust-reset [game-id player-id]
-  (reset-turn game-id player-id)
-  (swap! state assoc-in [(keyword game-id) :players (keyword player-id) :pending-points] 0))
-
-(defn score [game-id] ;; TODO: this uses stale data from the first 
-  (when-let [player (first (filter #(not (zero? (:pending-points %))) (-> game-id games/get-game :players vals)))]
-    (swap! state update-in [(keyword game-id) :players (keyword (:player-id player)) :points] + (:pending-points player))
-    (swap! state assoc-in [(keyword game-id) :players (keyword (:player-id player)) :pending-points] 0)))
-
 (defmulti update-game-state (fn [{:keys [type]}] type))
-(defmethod update-game-state :roll
-  [{:keys [game-id player-id roll-vec bust] :as params}]
-  (log/info "Updating Game State on Roll" (assoc params :game (games/get-game game-id)))
-  (if bust?
-    (do (bust-reset game-id player-id)
-        (score game-id))
-    (do (inc-turn-seq game-id player-id)
-        (swap! state assoc-in [(keyword game-id) :players (keyword player-id) :roll-vec] roll-vec))))
 
+;;;;;;;;;;;;;
+;; Roll Logic
+;; 
+;; Preconditions:
+;; 1. Ice-broken? -> if-not, previous player scores immediately, game-pending-points/dice reset
+;; 2. Steal -> only-if ice-broken? 
+;; Cases
+;; 1. Bust -> if not ice-broken? score already set. score previous points. Resetting previous scores done on :pass.
+;; 2. Not Bust -> inc turn seq, update roll-vec, update game-pending-dice
+;;;;;;;;;;;;;
+(defmethod update-game-state :pre-roll
+  [{:keys [game-id player-id steal ice-broken? turn-seq] :as params}]
+  (when-not (or ice-broken? steal (pos? turn-seq))
+    (state/score-flush game-id)
+    (log/info "Updated Game State pre-roll: score-flush" (assoc (games/get-game game-id) :params params))))
+(defmethod update-game-state :roll 
+  [{:keys [game-id player-id roll-vec bust?] :as params}]
+  (log/info "Updating Game State post-roll" params)
+  (if bust?
+    (do (state/bust-reset game-id player-id)
+        (state/score-flush game-id))
+    (do (state/update-turn-seq game-id player-id inc)
+        (state/update-roll-vec game-id player-id roll-vec)
+        (state/update-game-val game-id :pending-dice (- 6 (count roll-vec))))))
+
+(defn action-precond-fail-msg [game-id player-id]
+  (let [game (games/get-game game-id :safe false)]
+    (cond
+      (nil? game) "This game doesn't exist"
+      (not (:started game)) "The game hasn't started yet, chill."
+      (not (my-turn? game-id player-id)) "It's not your turn, chill.")))
+
+(defn roll-precond-fail-msg [game-id player-id steal]
+  (let [player (-> game-id
+                   (games/get-game :safe false)
+                   (get-in [:players (keyword player-id)]))
+        turn-message (action-precond-fail-msg game-id player-id)]
+    (cond
+      turn-message turn-message
+      (odd? (:turn-seq player)) "You can't roll at keeper-pickin' time."
+      :else (do (update-game-state {:type :pre-roll
+                                    :player-id player-id
+                                    :game-id game-id
+                                    :ice-broken? (:ice-broken player)
+                                    :turn-seq (:turn-seq player)
+                                    :steal steal})
+                nil))))
+
+(defn roll [game-id player-id {:keys [steal]}]
+  (if-let [msg (roll-precond-fail-msg game-id player-id steal)]
+    (resp/fail {:message msg})
+    (let [{:keys [pending-dice]} (games/get-game game-id)
+          roll-result (dice/roll pending-dice)
+          bust? (scoring/bust? roll-result)
+          msg (if bust? "You Busted!" "Pick Keepers!")]
+      (update-game-state {:type :roll
+                          :game-id game-id
+                          :player-id player-id
+                          :bust? bust?
+                          :roll-vec roll-result})
+      (resp/success
+       (-> game-id
+           games/get-game
+           (select-keys [:pending-points :pending-dice])
+           (assoc :message msg
+                  :roll roll-result))))))
+
+;;;;;;;;;;;;;
+;; Keep Logic
+;;
+;; Preconditions:
+;; 1. turn-seq even
+;; 2. non-empty keepers
+;; 3. all keepers taken from roll-vec
+;;
+;; Cases:
+;; 1. Normal -> reset roll-vec, bump player-pending-points, bump game-pending-points/dice, inc turn-seq
+;;;;;;;;;;;;;
 (defmethod update-game-state :keep ;; update player running points, game running points, update pending-dice, reset roll-vec
   [{:keys [pending-dice pending-points player-id game-id]}]
   (log/info "Updating Game State on keep" (games/get-game game-id))
-  (inc-turn-seq game-id player-id)
-  (swap! state assoc-in [(keyword game-id) :players (keyword player-id) :roll-vec] [])
-  (swap! state assoc-in [(keyword game-id) :players (keyword player-id) :pending-points] pending-points)
-  (swap! state assoc-in [(keyword game-id) :pending-points] pending-points)
-  (swap! state assoc-in [(keyword game-id) :pending-dice] pending-dice)) ;; 
-#_(defmethod update-game-state :pass) ;; reset player pending points other than current, reset roll-vec, score if ice-not-broken
-#_(defmethod update-game-state :sass)
+  (state/update-turn-seq game-id player-id inc)
+  (state/update-roll-vec game-id player-id [])
+  (state/update-pending-player-points game-id player-id pending-points)
+  (state/update-game-val game-id :pending-points pending-points)
+  (state/update-game-val game-id :pending-dice pending-dice))
 
-(defn roll [game-id player-id {:keys [steal]}]
-  (if-let [game (games/get-game game-id :safe false)]
-    (if (:started game)
-      (if (my-turn? game-id player-id)
-        (let [turn-seq (get-in game [:players (keyword player-id) :turn-seq])
-              num-dice (if (or steal
-                               (and (pos? turn-seq)
-                                    (even? turn-seq)))
-                         (:pending-dice game)
-                         6) ;; TODO: in this case pending poitns are 0
-              roll-result (dice/roll num-dice)
-              bust? (scoring/bust? roll-result)
-              msg (if bust? "You Busted!" "Pick Keepers or Pass?")]
-          (update-game-state {:type :roll
-                              :game-id game-id
-                              :player-id player-id
-                              :bust? bust? ;; TODO: on bust cleanup points
-                              :roll-vec roll-result})
-          (resp/success
-           (-> game-id
-               get-game
-               (select-keys [:pending-points :pending-dice])
-               (assoc :message msg
-                      :roll roll-result))))
-        (resp/fail {:message "It's not your turn, chill."}))
-      (resp/fail {:message "The game hasn't started yet, chill."}))))
+
+(defn keep-precond-fail-msg [game-id player-id keepers]
+  (let [player (-> game-id
+                   (games/get-game :safe false)
+                   (get-in [:players (keyword player-id)]))
+        turn-message (action-precond-fail-msg game-id player-id)]
+    (cond
+      turn-message turn-message
+      (not (seq keepers)) "You need at least one die value under 'keepers' param"
+      (even? (:turn-seq player)) "It's not keeper-pickin' time, either pass or roll")))
 
 (defn keep [game-id player-id {:keys [keepers] :as params}]
-  (if-let [game (games/get-game game-id :safe false)]
-    (if (:started game)
-      (if (my-turn? game-id player-id)
-        (let [{:keys [pending-points players]} game
-              {:keys [turn-seq roll-vec]} ((keyword player-id) players)]
-          (if (odd? turn-seq)
-            (let [_ (log/info "Keep step" {:roll-vec roll-vec
-                                           :keepers keepers
-                                           :partitioned (scoring/partition-keepers roll-vec keepers)})
-                  partitioned-keepers (scoring/partition-keepers roll-vec keepers)
-                  fail-message (cond
-                                 (not partitioned-keepers) "Must pick at least one die"
-                                 (scoring/bust? keepers) "Must pick at least one scoring die")]
-              (if-not fail-message
-                (let [{:keys [roll-points pending-dice]} (scoring/partition-points partitioned-keepers)
-                      pending-points (+ roll-points pending-points)
-                      game-update {:pending-dice pending-dice
-                                   :pending-points pending-points
-                                   :game-id game-id
-                                   :player-id player-id}]
-                  (update-game-state (assoc game-update :type :keep))
-                  (resp/success (assoc game-update :message "Keepers are in. Roll or Pass?")))
-                (resp/fail {:message fail-message})))
-            (resp/fail {:message "It's not keeper time, it's roll or pass time"})))
-        (resp/fail {:message "It's not your turn, chill."}))
-      (resp/fail {:message "Game hasn't started yet, chill."}))))
+  (if-let [msg (keep-precond-fail-msg game-id player-id keepers)]
+    (resp/fail {:message msg})
+    (let [{:keys [pending-points players]} (games/get-game game-id :safe false)
+          {:keys [turn-seq roll-vec]} ((keyword player-id) players)
+          partitioned-keepers (scoring/partition-keepers roll-vec keepers)
+          fail-message (cond
+                         (not partitioned-keepers) "Must pick at least one die"
+                         (scoring/bust? keepers) "Must pick at least one scoring die")]
+      (if fail-message
+        (resp/fail {:message fail-message})
+        (let [{:keys [roll-points pending-dice]} (scoring/partition-points partitioned-keepers)
+              pending-points (+ roll-points pending-points)
+              game-update {:pending-dice (if (zero? pending-dice) 6 pending-dice)
+                           :pending-points pending-points
+                           :game-id game-id
+                           :player-id player-id}]
+          (update-game-state (assoc game-update :type :keep))
+          (resp/success (assoc game-update :message "Keepers are in. Roll or Pass?")))))))
 
-(defn pass [game-id player-id]) ;; reset turn-seq
+;;;;;;;;;;;;;
+;; Pass Logic
+;;
+;; Preconditions:
+;; 1. turn-seq pos? and even?
+;; 2. ice-broken? true or player-pending-score > 1000
+;;
+;; Cases
+;; 1. Normal -> reset turn-seq, reset all pending-player-points, reset roll-vec, bump game-turn, set player-pending-points, pending-game-dice-update, pending-game-points update
+;; 2. Breaking the ice -> reset turn-seq, reset all pending-player-points, reset roll-vec, bump game-turn, score player-pending points, reset pending-game-dice, reset pending-game-points
+;;
+;;;;;;;;;;;;;
+
+(defn- ice-breaker? [ice-broken? pending-points]
+  (and (not ice-broken?)
+       (<= 1000 pending-points)))
+(defmethod update-game-state :pass
+  [{:keys [game-id player-id ice-broken? pending-points]}]
+  (state/pass-reset game-id player-id)
+  (state/reset-pending-points-all game-id)
+  (if (ice-breaker? ice-broken? pending-points)
+    (do (state/update-player-val game-id player-id :points pending-points)
+        (state/reset-game-dice-and-points game-id))
+    (do (state/update-pending-player-points game-id player-id pending-points)
+        (state/update-game-val game-id :pending-points pending-points))))
+
+(defn pass-precond-fail-msg [game-id player-id]
+  (let [{:keys [ice-broken? pending-points turn-seq points]
+         :as player} (-> game-id
+                         (games/get-game :safe false)
+                         (get-in [:players (keyword player-id)]))
+        turn-message (action-precond-fail-msg game-id player-id)]
+    (cond
+      turn-message turn-message
+      (not (or (ice-breaker? ice-broken? pending-points)
+               (>= points 1000))) "Ice, ice, baby... Gotta break it to pass."
+      (odd? turn-seq) "You can't pass at keeper-pickin' time."
+      (zero? turn-seq) "Can't pass on your first turn. Roll the dice, baby.")))
+
+(defn pass [game-id player-id]
+  (if-let [msg (pass-precond-fail-msg game-id player-id)]
+    (resp/fail {:message msg})
+    (let [{:keys [pending-points ice-broken?]
+           :as player} (-> game-id
+                         (games/get-game :safe false)
+                         (get-in [:players (keyword player-id)]))]
+      (update-game-state {:type :pass
+                          :game-id game-id
+                          :player-id player-id
+                          :ice-broken? ice-broken?
+                          :pending-points pending-points})
+      (resp/success (-> game-id
+                        games/get-game
+                        (assoc :message "Successful pass."))))))
 
 (defn sass [game-id player-id])
