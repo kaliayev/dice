@@ -34,8 +34,7 @@
           ;; Player Actions
           (POST "/roll" {params :body} (players/roll game-id player-id params))
           (POST "/keep" {params :body} (players/keep game-id player-id params))
-          (POST "/pass" [] (players/pass game-id player-id))
-          (POST "/sass" {params :body} (players/sass game-id player-id params))))))
+          (POST "/pass" [] (players/pass game-id player-id))))))
 
   (route/not-found "Not a real route..."))
 

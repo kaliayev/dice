@@ -187,5 +187,3 @@
       (resp/success (-> game-id
                         games/get-game
                         (assoc :message "Successful pass."))))))
-
-(defn sass [game-id player-id params])

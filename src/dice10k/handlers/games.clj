@@ -80,7 +80,7 @@
                     :points :int
                     :turn-seq :int
                     :pending-points :int
-                    :roll-vec :dice-vec
+                    :roll-vec :dice-vec 
                     :ice-broken? :bool})
 
 (defn add-player
