@@ -154,6 +154,7 @@
   (state/reset-pending-points-all game-id)
   (if (ice-breaker? ice-broken? pending-points)
     (do (state/update-player-val game-id player-id :points pending-points)
+        (state/update-player-val game-id player-id :ice-broken? true)
         (state/reset-game-dice-and-points game-id))
     (do (state/update-pending-player-points game-id player-id pending-points)
         (state/update-game-val game-id :pending-points pending-points))))
@@ -187,4 +188,4 @@
                         games/get-game
                         (assoc :message "Successful pass."))))))
 
-(defn sass [game-id player-id])
+(defn sass [game-id player-id params])

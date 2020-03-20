@@ -55,4 +55,4 @@
          (reduce-kv (fn [acc player-id player]
                       (assoc acc (keyword player-id) (assoc player :pending-points 0)))
                     {}
-                    (:players @state))))
+                    (get-in @state [(keyword game-id) :players]))))

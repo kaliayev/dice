@@ -5,7 +5,7 @@
 ;; special cases
 
 (defn three-pair? [partitions]
-  (= 3 (filter #(= 2 (count %)) partitions)))
+  (= 3 (count (filter #(= 2 (count %)) partitions))))
 
 (defn straight? [partitions]
   (= 6 (count partitions)))
@@ -27,10 +27,10 @@
 (defn partition-reducer
   [{:keys [pending-dice roll-points]} part]
   (let [part-points (cond
-                     (<= 3 (count part)) (scoring-multiples part)
-                     (ones-fives part) (ones-fives part)
-                     :else 0)]
-    {:pending-dice (- pending-dice (count part))
+                      (<= 3 (count part)) (scoring-multiples part)
+                      (ones-fives part) (ones-fives part)
+                      :else 0)]
+    {:pending-dice (- pending-dice (if (pos? part-points) (count part) 0))
      :roll-points (+ roll-points part-points)}))
 
 (defn eval-points

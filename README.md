@@ -73,11 +73,12 @@ The actions available for the turn-player (`POST /games/$GAME_ID/players/$PLAYER
 * pass - freezes your current score and passes remaining dice to the next player
 
 ## TODOs
-* [ ] The turn ordering is probably messed up, players used to be a vector, and are now a map
+* [x] The turn ordering is probably messed up, players used to be a vector, and are now a map
 * [ ] There is no end-game handling... you just sorta have to stop when someone wins
 * [ ] Some of the state stuff is janky and not totally good.
 * [ ] Rulesets could be variablized and stored somewhere like domain (num-dice, values of straights/3 of a kind, stealing protocol...)
 * [ ] `keep.sh` needs to take a vector of keepers as third input
+* [ ] Doesn't use a real logger, very simple thread with blocking queue implementation.
 
 ## License
 

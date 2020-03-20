@@ -21,7 +21,7 @@
 (defn whos-turn [game-id]
   (let [{:keys [turn players]} ((keyword game-id) @state)]
     (when-let [players (seq (vals players))]
-      (nth players (mod turn (count players))))))
+      (first (filter #(= (mod turn (count players)) (:turn-order %)) players)))))
 
 (defn get-game [game-id & {:keys [safe] :or {safe true}}]
   (when-let [game ((keyword game-id) @state)]
