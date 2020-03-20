@@ -1,4 +1,5 @@
-(ns dice10k.domain.resp)
+(ns dice10k.domain.resp
+  (:require [dice10k.domain.log :as log]))
 
 (defn success
   [out]
@@ -8,6 +9,7 @@
 
 (defn fail
   [out]
+  (log/info (str "[400 Response] Bad Request:" (:message out)))
   {:status 400
    :headers {"Content-Type" "application/json"}
    :body out})

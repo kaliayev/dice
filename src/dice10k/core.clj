@@ -13,7 +13,7 @@
              [resp :as resp]]
             [dice10k.handlers
              [games :as games]
-             [players :as players]]))
+             [actions :as actions]]))
 
 (defroutes app-routes
   (context "/games" []

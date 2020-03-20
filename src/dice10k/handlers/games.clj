@@ -40,6 +40,7 @@
    :turn :int
    :turn-player :str
    :pending-points :int
+   :state :kw
    :pending-dice :int})
 
 (defn new-game
@@ -51,6 +52,7 @@
               :players {}
               :friendly-name friendly-name
               :turn 0
+              :state :created
               :pending-points 0
               :pending-dice 0}]
     (log/info "Initiating new game" game)
@@ -65,7 +67,7 @@
 
 (defn start
   [game-id]
-  (swap! state assoc-in [(keyword game-id) :started] true)
+  (swap! state assoc-in [(keyword game-id) :state] :started)
   (let [{:keys [players]
          :as game} (get-game game-id)]
     (if (and game

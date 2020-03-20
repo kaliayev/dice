@@ -12,6 +12,15 @@
      :headers {"Content-Type" "application/json"}
      :body {:message "Failed Auth: app-token didn't match for this instance."}}))
 
+(defn ten-thousand? [game-id]
+  (let [players (-> @state
+                    (get-in [(keyword game-id) :players])
+                    vals)]
+    (->> players
+         (map :points)
+         (filter #(= % 10000))
+         first)))
+
 (defn update-player-val [game-id player-id kw upd]
   (let [modifier (if (fn? upd) update-in assoc-in)]
     (swap! state modifier [(keyword game-id) :players (keyword player-id) kw] upd)))
@@ -48,7 +57,9 @@
   (when-let [{:keys [pending-points player-id]
               :as player} (first (filter #(not (zero? (:pending-points %))) (-> ((keyword game-id) @state) :players vals)))]
     (update-player-val game-id player-id :points #(+ pending-points %))
-    (update-pending-player-points game-id player-id 0)))
+    (update-pending-player-points game-id player-id 0)
+    (when (ten-thousand? game-id)
+      (update-game-val game-id :state :completed))))
 
 (defn reset-pending-points-all [game-id]
   (swap! state assoc-in [(keyword game-id) :players]
