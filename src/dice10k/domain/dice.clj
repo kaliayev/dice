@@ -1,4 +1,5 @@
-(ns dice10k.domain.dice)
+(ns dice10k.domain.dice
+  (:require [dice10k.domain.rules :as rules]))
 
 (def six-template
   "+---+---+---+
@@ -49,7 +50,7 @@
 
 (defn roll-single
   []
-  (inc (rand-int 6)))
+  (inc (rand-int rules/num-dice)))
 
 (defn roll [n]
   (->> (repeatedly roll-single)

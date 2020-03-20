@@ -1,4 +1,5 @@
-(ns dice10k.domain.scoring)
+(ns dice10k.domain.scoring
+  (:require [dice10k.domain.rules :as rules]))
 
 (defn exp2 [x n] (* x (reduce * (take n (repeat 2))))) ;; lol
 
@@ -8,7 +9,7 @@
   (= 3 (count (filter #(= 2 (count %)) partitions))))
 
 (defn straight? [partitions]
-  (= 6 (count partitions)))
+  (= rules/num-dice (count partitions)))
 
 ;; Regular scoring
 

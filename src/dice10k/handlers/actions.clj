@@ -3,6 +3,7 @@
              [dice :as dice]
              [log :as log]
              [resp :as resp]
+             [rules :as rules]
              [scoring :as scoring]
              [state :as state]]
             [dice10k.handlers.games :as games]))
@@ -36,7 +37,10 @@
 ;;;;;;;;;;;;;
 (defmethod update-game-state :pre-roll
   [{:keys [game-id player-id steal ice-broken? turn-seq] :as params}]
-  (when-not (or ice-broken? steal (pos? turn-seq))
+  (when-not (or ice-broken?
+                (pos? turn-seq)
+                (and steal
+                     ice-broken?))
     (state/score-flush game-id)
     (log/info "Updated Game State pre-roll: score-flush" (assoc params :game (games/get-game game-id)))))
 (defmethod update-game-state :roll
@@ -47,19 +51,21 @@
         (log/info "Updated Game State post-roll: bust" (assoc params :game (games/get-game game-id))))
     (do (state/update-turn-seq game-id player-id inc)
         (state/update-roll-vec game-id player-id roll-vec)
-        (state/update-game-val game-id :pending-dice (- 6 (count roll-vec)))
+        (state/update-game-val game-id :pending-dice (- rules/num-dice (count roll-vec)))
         (log/info "Updated Game State post-roll: no bust" (assoc params :game (games/get-game game-id))))))
 
 (defn roll-precond-fail-msg [game-id player-id steal]
   (let [game (games/get-game game-id :safe false)
-        player (get-in game [:players (keyword player-id)])
+        {:keys [ice-broken?] :as player} (get-in game [:players (keyword player-id)])
         turn-message (action-precond-fail-msg game-id player-id)]
     (cond
       turn-message turn-message
       (odd? (:turn-seq player)) "You can't roll at keeper-pickin' time."
       (and steal
-           (< 10000 (+ (:points player)
-                       (:pending-points game)))) "You can't steal, it'll put you over 10k."
+           (not ice-broken?)) "You can't steal before breaking the ice!"
+      (and steal
+           (< rules/winning-score (+ (:points player)
+                                     (:pending-points game)))) "You can't steal, it'll put you over 10k."
       :else (do (update-game-state {:type :pre-roll
                                     :player-id player-id
                                     :game-id game-id
@@ -89,9 +95,9 @@
                                                   :params params
                                                   :game (games/get-game game-id :safe false)})
       (resp/success
-       (assoc {:message msg
-               :roll roll-result
-               :game-state (games/get-game game-id)})))))
+       {:message msg
+        :roll roll-result
+        :game-state (games/get-game game-id)}))))
 
 ;;;;;;;;;;;;;
 ;; Keep Logic
@@ -135,18 +141,21 @@
           {:keys [turn-seq roll-vec name]} ((keyword player-id) players)
           partitioned-keepers (scoring/partition-keepers roll-vec keepers)
           fail-message (cond
-                         (not partitioned-keepers) "Must pick at least one die"
+                         (not partitioned-keepers) "Make a selection from the dice in your roll"
                          (scoring/bust? keepers) "Must pick at least one scoring die")]
       (if fail-message
-        (resp/fail {:message fail-message})
+        (resp/fail {:message fail-message
+                    :roll roll-vec})
         (let [{:keys [roll-points pending-dice]} (scoring/partition-points partitioned-keepers)
               pending-points (+ roll-points pending-points)]
-          (if (> pending-points 10000)
+          (if (> pending-points rules/winning-score)
             (resp/fail (assoc (games/get-game game-id)
                               :message (format "I can't let you do that, %s. It would put you over, at %s points"
                                                name pending-points)))
             (do (update-game-state {:type :keep
-                                    :pending-dice (if (zero? pending-dice) 6 pending-dice)
+                                    :pending-dice (if (zero? pending-dice)
+                                                    rules/num-dice
+                                                    pending-dice)
                                     :pending-points pending-points
                                     :game-id game-id
                                     :player-id player-id})

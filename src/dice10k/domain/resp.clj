@@ -9,7 +9,7 @@
 
 (defn fail
   [out]
-  (log/info (str "[400 Response] Bad Request:" (:message out)))
+  (log/info (str "[400 Response] Bad Request: " (:message out)))
   {:status 400
    :headers {"Content-Type" "application/json"}
    :body out})
@@ -19,3 +19,13 @@
   {:status 200
    :headers {"Content-Type" "text/plain"}
    :body out})
+
+(defn not-found
+  [body]
+  (fn handler
+    [request]
+    {:status 404
+     :headers {"Content-Type" "application/json"}
+     :body body}))
+
+

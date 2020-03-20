@@ -1,6 +1,8 @@
 (ns dice10k.domain.state
   (:require [clj-uuid :as uuid]
-            [dice10k.domain.resp :as resp]))
+            [dice10k.domain
+             [resp :as resp]
+             [rules :as rules]]))
 
 (defonce state (atom {:app-token (str (uuid/v4))}))
 
@@ -18,7 +20,7 @@
                     vals)]
     (->> players
          (map :points)
-         (filter #(= % 10000))
+         (filter #(= % rules/winning-score))
          first)))
 
 (defn update-player-val [game-id player-id kw upd]
@@ -28,6 +30,9 @@
 (defn update-game-val [game-id kw upd]
   (let [modifier (if (fn? upd) update-in assoc-in)]
     (swap! state modifier [(keyword game-id) kw] upd)))
+
+(defn update-stat-val [game-id player-id stat-kw fn]
+  (swap! state update-in [(keyword game-id) :players (keyword player-id) :stats stat-kw] fn))
 
 (defn update-turn-seq
   [game-id player-id upd]
@@ -50,7 +55,7 @@
 
 (defn reset-game-dice-and-points [game-id]
   (update-game-val game-id :pending-points 0)
-  (update-game-val game-id :pending-dice 6))
+  (update-game-val game-id :pending-dice rules/num-dice))
 
 (defn score-flush [game-id] ;; TODO: this uses stale data from the first fetch
   (reset-game-dice-and-points game-id)

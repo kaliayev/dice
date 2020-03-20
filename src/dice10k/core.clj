@@ -1,8 +1,7 @@
-(ns dice10k.handler
+(ns dice10k.core
   (:gen-class)
-  (:require [compojure.core :refer [defroutes routes GET POST PUT context]]
+  (:require [compojure.core :refer [defroutes routes GET POST PUT DELETE context]]
             [compojure.route :as route]
-            [ring.util.response :refer []]
             [ring.middleware.defaults :refer [wrap-defaults api-defaults]]
             [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
             [ring.adapter.jetty :refer [run-jetty]]
@@ -12,31 +11,33 @@
              [state :as state]
              [resp :as resp]]
             [dice10k.handlers
+             [actions :as actions]
              [games :as games]
-             [actions :as actions]]))
+             [stats :as stats]]))
 
 (defroutes app-routes
   (context "/games" []
-    (GET "/" {params :body} (state/dump-state params)) ;; admin dump, should be disabled when run
-    (POST "/" {params :body} (games/new-game params)) ;; New Game
+    (GET "/" {params :body} (state/dump-state params)) ;; admin dump, requires startup token
+    (POST "/" {params :body} (games/new-game params)) ;; returns mgmt-token for managing participants
 
     (context "/:game-id" [game-id]
-      (GET "/" [] (games/get-state game-id)) ;; Game state
-      (PUT "/start" [] (games/start game-id))
-      
+      (GET "/" [] (games/get-state game-id))
+      (PUT "/start" [] (games/start game-id)) 
+      (GET "/stats" [] (stats/game-stats game-id))
 
       (context "/players" []
-        (POST "/" {params :body} (games/add-player game-id params)) ;; Add new player
+        (POST "/" {params :body} (games/add-player game-id params)) ;; returns player-id token needed for playing
 
         (context "/:player-id" [player-id]
           (GET "/" [] (games/get-player game-id player-id))
+          (DELETE "/" {params :body} (games/remove-player game-id player-id params)) ;; requires mgmt-token
           
           ;; Player Actions
-          (POST "/roll" {params :body} (players/roll game-id player-id params))
-          (POST "/keep" {params :body} (players/keep game-id player-id params))
-          (POST "/pass" [] (players/pass game-id player-id))))))
+          (POST "/roll" {params :body} (actions/roll game-id player-id params))
+          (POST "/keep" {params :body} (actions/keep game-id player-id params))
+          (POST "/pass" [] (actions/pass game-id player-id))))))
 
-  (route/not-found "Not a real route..."))
+  (resp/not-found {:message "Route not found: Either the id is invalid, your method is invalid or it's not even a real route. Who knows. Whatever you were looking for. It isn't here."}))
 
 (def app
   (routes
