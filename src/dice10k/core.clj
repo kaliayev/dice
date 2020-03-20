@@ -1,11 +1,9 @@
 (ns dice10k.core
   (:gen-class)
   (:require [compojure.core :refer [defroutes routes GET POST PUT DELETE context]]
-            [compojure.route :as route]
             [ring.middleware.defaults :refer [wrap-defaults api-defaults]]
             [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
             [ring.adapter.jetty :refer [run-jetty]]
-            [clj-uuid :as uuid]
             [dice10k.domain
              [log :as log]
              [state :as state]
@@ -34,7 +32,7 @@
           
           ;; Player Actions
           (POST "/roll" {params :body} (actions/roll game-id player-id params))
-          (POST "/keep" {params :body} (actions/keep game-id player-id params))
+          (POST "/keep" {params :body} (actions/keep-dice game-id player-id params))
           (POST "/pass" [] (actions/pass game-id player-id))))))
 
   (resp/not-found {:message "Route not found: Either the id is invalid, your method is invalid or it's not even a real route. Who knows. Whatever you were looking for. It isn't here."}))
@@ -46,7 +44,7 @@
        (wrap-json-body {:keywords? true})
        wrap-json-response)))
 
-(defn -main [& args]
+(defn -main [& _]
   (log/start-log-worker)
   (log/info "Logger Started" @state/state)
   (run-jetty app {:port 3000

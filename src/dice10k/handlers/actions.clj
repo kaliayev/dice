@@ -36,7 +36,7 @@
 ;; 2. Not Bust -> inc turn seq, update roll-vec, update game-pending-dice
 ;;;;;;;;;;;;;
 (defmethod update-game-state :pre-roll
-  [{:keys [game-id player-id steal ice-broken? turn-seq] :as params}]
+  [{:keys [game-id steal ice-broken? turn-seq] :as params}]
   (when-not (or ice-broken?
                 (pos? turn-seq)
                 (and steal
@@ -130,7 +130,7 @@
       (not (seq keepers)) "You need at least one die value under 'keepers' param"
       (even? (:turn-seq player)) "It's not keeper-pickin' time, either pass or roll")))
 
-(defn keep [game-id player-id {:keys [keepers] :as params}]
+(defn keep-dice [game-id player-id {:keys [keepers] :as params}]
   (log/info "Received Keep" {:game-id game-id
                              :player-id player-id
                              :params params
@@ -138,7 +138,7 @@
   (if-let [msg (keep-precond-fail-msg game-id player-id keepers)]
     (resp/fail {:message msg})
     (let [{:keys [pending-points players]} (games/get-game game-id :safe false)
-          {:keys [turn-seq roll-vec name]} ((keyword player-id) players)
+          {:keys [roll-vec name]} ((keyword player-id) players)
           partitioned-keepers (scoring/partition-keepers roll-vec keepers)
           fail-message (cond
                          (not partitioned-keepers) "Make a selection from the dice in your roll"
@@ -199,10 +199,10 @@
         (log/info "Updated Game State post-pass: normal case" (assoc params :game (games/get-game game-id))))))
 
 (defn pass-precond-fail-msg [game-id player-id]
-  (let [{:keys [ice-broken? pending-points turn-seq points]
-         :as player} (-> game-id
-                         (games/get-game :safe false)
-                         (get-in [:players (keyword player-id)]))
+  (let [{:keys [ice-broken? pending-points
+                turn-seq points]} (-> game-id
+                                      (games/get-game :safe false)
+                                      (get-in [:players (keyword player-id)]))
         turn-message (action-precond-fail-msg game-id player-id)]
     (cond
       turn-message turn-message
@@ -217,10 +217,9 @@
                              :game (games/get-game game-id :safe false)})
   (if-let [msg (pass-precond-fail-msg game-id player-id)]
     (resp/fail {:message msg})
-    (let [{:keys [pending-points ice-broken?]
-           :as player} (-> game-id
-                           (games/get-game :safe false)
-                           (get-in [:players (keyword player-id)]))]
+    (let [{:keys [pending-points ice-broken?]} (-> game-id
+                                                   (games/get-game :safe false)
+                                                   (get-in [:players (keyword player-id)]))]
       (update-game-state {:type :pass
                           :game-id game-id
                           :player-id player-id

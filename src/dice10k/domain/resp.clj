@@ -23,7 +23,7 @@
 (defn not-found
   [body]
   (fn handler
-    [request]
+    [_]
     {:status 404
      :headers {"Content-Type" "application/json"}
      :body body}))

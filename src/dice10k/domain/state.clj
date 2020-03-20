@@ -59,8 +59,11 @@
 
 (defn score-flush [game-id] ;; TODO: this uses stale data from the first fetch
   (reset-game-dice-and-points game-id)
-  (when-let [{:keys [pending-points player-id]
-              :as player} (first (filter #(not (zero? (:pending-points %))) (-> ((keyword game-id) @state) :players vals)))]
+  (when-let [{:keys [pending-points player-id]} (->> (-> ((keyword game-id) @state)
+                                                         :players
+                                                         vals)
+                                                     (filter #(pos? (:pending-points %)) )
+                                                     first)]
     (update-player-val game-id player-id :points #(+ pending-points %))
     (update-pending-player-points game-id player-id 0)
     (when (ten-thousand? game-id)

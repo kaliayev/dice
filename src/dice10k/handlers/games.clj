@@ -1,5 +1,6 @@
 (ns dice10k.handlers.games
-  (:require [clj-uuid :as uuid]
+  (:require [cheshire.core :refer [parse-string]]
+            [clj-uuid :as uuid]
             [clj-http.client :as http]
             [dice10k.domain
              [log :as log]
@@ -11,7 +12,7 @@
 (defn random-words [n]
   (-> (http/get (str "https://random-word-api.herokuapp.com/word?number=" n)
                 {:content-type :json})
-      :body cheshire.core/parse-string))
+      :body parse-string))
 
 (defn- generate-name []
   (->> (random-words 2)
@@ -45,7 +46,7 @@
    :pending-dice :int})
 
 (defn new-game
-  [{:keys [friendly-name] :as params}]
+  [{:keys [friendly-name]}]
   (let [friendly-name (if (seq friendly-name)
                         friendly-name
                         (generate-name))
@@ -91,7 +92,7 @@
                     :ice-broken? :bool})
 
 (defn add-player
-  [game-id {:keys [name] :as params}]
+  [game-id {:keys [name]}]
   (if-let [game (get-game game-id)]
     (let [player-name (if (seq name)
                         name

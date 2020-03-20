@@ -1,7 +1,7 @@
 (ns dice10k.domain.log
   (:require [clj-time.core :as time]
             [clojure.pprint :refer [pprint]])
-  (:import [java.util.concurrent BlockingQueue LinkedBlockingQueue]))
+  (:import [java.util.concurrent LinkedBlockingQueue]))
 
 (def log-queue (LinkedBlockingQueue. 1024))
 
