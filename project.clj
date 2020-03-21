@@ -15,7 +15,7 @@
                  [ring/ring-jetty-adapter "1.8.0"]]
   :plugins [[lein-ring "0.12.5"]]
   :ring {:handler dice10k.core/app}
-  :main ^:skip-aot dice10k.core
+  :main dice10k.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}
              :dev {:dependencies [[javax.servlet/servlet-api "2.5"]

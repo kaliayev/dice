@@ -13,6 +13,8 @@
              [games :as games]
              [stats :as stats]]))
 
+(def port 3000)
+
 (defroutes app-routes
   (context "/games" []
     (GET "/" {params :body} (state/dump-state params)) ;; admin dump, requires startup token
@@ -46,6 +48,7 @@
 
 (defn -main [& _]
   (log/start-log-worker)
-  (log/info "Logger Started" @state/state)
-  (run-jetty app {:port 3000
+  (log/info "Logger Started")
+  (log/info (str "App started on port: " port) )
+  (run-jetty app {:port port
                   :join? false}))
