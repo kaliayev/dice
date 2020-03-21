@@ -13,10 +13,10 @@ Example bash functions for some game config/playing exist in the `/resources` di
 curl \
 -X POST -H "Content-Type: application/json" \
 -d '{"friendly-name": "YOUR NEW GAME"}'\
-$DICE_HOST/games
+dice.calinfraser.com/games
 ```
 Names are optional; a generated one will be passed to you if you don't provide one.
-`$DICE_HOST` would be `localhost:3000` or whatever you have tunnelling to your server.
+`dice.calinfraser.com` would be `localhost:3000` or whatever you have tunnelling to your server.
 
 ### Response
 This will return you some JSON:
@@ -39,7 +39,7 @@ You need some players to start a game, but players can join an ongoing game as w
 curl \
 -X POST -H "Content-Type: application/json" \
 -d '{"name": "some name"}' \
-$DICE_HOST/games/$GAME_ID/players
+dice.calinfraser.com/games/$GAME_ID/players
 ```
 ### Response
 
