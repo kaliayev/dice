@@ -49,6 +49,6 @@
 (defn -main [& _]
   (log/start-log-worker)
   (log/info "Logger Started")
-  (log/info (str "App started on port: " port) )
+  (log/info (str "App started on port: " port) @state/state)
   (run-jetty app {:port port
                   :join? false}))
