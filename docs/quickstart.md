@@ -16,7 +16,8 @@ curl \
 dice.calinfraser.com/games
 ```
 Names are optional; a generated one will be passed to you if you don't provide one.
-`dice.calinfraser.com` would be `localhost:3000` or whatever you have tunnelling to your server.
+`dice.calinfraser.com` would be `localhost:3000` or whatever you have tunnelling to your server if
+you're not using the hosted game.
 
 ### Response
 This will return you some JSON:
