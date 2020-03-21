@@ -54,14 +54,31 @@ anyone with this token can play for you. It won't be provided in basic game resp
 
 ## Playing
 ### Start
-When you're ready, you must initiate the game with a `PUT` to `/games/$GAME_ID/start`.
+When you're ready, you must initiate the game:
+
+``` bash
+curl \
+-X POST -H "Content-Type: application/json" \
+dice.calinfraser.com/games/$GAME_ID/start
+```
 
 ### State
 You can check who's turn it is and get other game-state info at any point with a
-`GET` from `/games/$GAME_ID`.
+
+``` bash
+curl dice.calinfraser.com/games/$GAME_ID
+```
 
 ## Actions
-The actions available for the turn-player (`POST /games/$GAME_ID/players/$PLAYER_ID/:action-name`):
-* roll - rolls all 6 dice unless `steal` parameter is passed in json post data, or you've already rolled
-* keep - pick dice to score with and either keep rolling or pass under `keepers` param in json post body
-* pass - freezes your current score and passes remaining dice to the next player
+As the turn-player, to execute an action you post to the `/:player-id/:action-name` like so:
+
+``` bash
+curl \
+-X POST -H "Content-Type: application/json" \
+-d '{"steal": true, "keepers": [1 2 3 4 5 6]}'
+dice.calinfraser.com/games/$GAME_ID/players/$PLAYER_ID/:action-name
+```
+
+* roll - rolls all 6 dice unless `steal` parameter is passed in json post data, or you've already rolled.
+* keep - pick dice vector with which to score under `keepers` body-param, then either keep rolling or pass.
+* pass - freezes your current score and passes remaining dice to the next player.
