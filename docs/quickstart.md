@@ -34,7 +34,7 @@ This will return you some JSON:
 ```
 
 ## Adding some players
-You need some players to start a game, but players can join an ongoing game as well:
+You need some players to start a game, but players can join an ongoing game at any time:
 ### Request
 ``` bash
 curl \
