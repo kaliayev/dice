@@ -37,12 +37,14 @@
 ;;;;;;;;;;;;;
 (defmethod update-game-state :pre-roll
   [{:keys [game-id steal ice-broken? turn-seq] :as params}]
-  (when-not (or ice-broken?
-                (pos? turn-seq)
-                (and steal
-                     ice-broken?))
-    (state/score-flush game-id)
-    (log/info "Updated Game State pre-roll: score-flush" (assoc params :game (games/get-game game-id)))))
+  (log/info "param" params)
+  (cond
+    (and steal ice-broken?) (log/info "Steal Occurred, no score-flush" (assoc params :game (games/get-game game-id)))
+    (and (zero? turn-seq)
+         (not steal)) (state/score-flush game-id)
+    (and (zero? turn-seq) (not ice-broken?)) (state/score-flush game-id)
+    :else (log/info "No condition met, did not score-flush" (assoc params :game (games/get-game game-id))))
+  )
 (defmethod update-game-state :roll
   [{:keys [game-id player-id roll-vec bust?] :as params}]
   (if bust?
@@ -69,7 +71,7 @@
       :else (do (update-game-state {:type :pre-roll
                                     :player-id player-id
                                     :game-id game-id
-                                    :ice-broken? (:ice-broken player)
+                                    :ice-broken? ice-broken?
                                     :turn-seq (:turn-seq player)
                                     :steal steal})
                 nil))))

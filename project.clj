@@ -1,4 +1,4 @@
-(defproject dice10k "0.1.0"
+(defproject dice10k "0.2.0-SNAPSHOT"
   :description "classic dice 10000"
   :url "https://github.com/kaliayev/dice10k"
   :min-lein-version "2.0.0"
