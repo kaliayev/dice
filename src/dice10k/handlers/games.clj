@@ -112,9 +112,9 @@
     (resp/fail dne)))
 
 (defn get-player [game-id player-id]
-  (if-let [player (some->> game-id
-                           (get-game :safe false)
-                           (get-in [:players (keyword player-id)]))]
+  (if-let [player (some-> game-id
+                          (get-game :safe false)
+                          (get-in [:players (keyword player-id)]))]
     (resp/success player)
     (resp/fail {:message "That player isn't a part of the provided game"
                 :game-id game-id
