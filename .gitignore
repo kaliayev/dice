@@ -3,3 +3,6 @@
 /checkouts
 /.lein-*
 /.nrepl-port
+.DS_Store
+.idea/
+dice10k.iml
